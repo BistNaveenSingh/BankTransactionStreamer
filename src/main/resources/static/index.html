@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Transaction Streamer | Kafka & MongoDB</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="navbar">
+        <div class="logo">
+            <span class="icon">⚡</span>
+            <h1>Bank Transaction Streamer</h1>
+            <span class="tag">Kafka + MongoDB ETL</span>
+        </div>
+        <div class="system-status">
+            <div class="status-badge" id="kafkaStatus">
+                <span class="dot green"></span> Kafka: <strong id="kafkaText">9092</strong>
+            </div>
+            <div class="status-badge" id="mongoStatus">
+                <span class="dot green"></span> Mongo: <strong id="mongoText">Connected</strong>
+            </div>
+            <div class="status-badge">
+                <span class="dot green"></span> Stream: <strong id="consumerCount">0 msgs</strong>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Live Analytics Stats Section (Phase 16) -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Transactions</div>
+                <div class="stat-value" id="statTotalTxn">0</div>
+                <div class="stat-sub">Streamed via Kafka</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Amount</div>
+                <div class="stat-value" id="statTotalAmount">₹0.00</div>
+                <div class="stat-sub">Processed volume</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Average Amount</div>
+                <div class="stat-value" id="statAvgAmount">₹0.00</div>
+                <div class="stat-sub">Per transaction</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Transaction Breakdown</div>
+                <div class="stat-types">
+                    <span>UPI: <b id="statUpi">0</b></span>
+                    <span>Debit: <b id="statDebit">0</b></span>
+                    <span>Credit: <b id="statCredit">0</b></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Two Columns: Transaction Form & Architecture Flow -->
+        <div class="grid-2col">
+            <!-- Payment Simulator Card (Phase 10) -->
+            <section class="card payment-card">
+                <div class="card-header">
+                    <h2>💳 Send Digital Payment (UPI / Bank)</h2>
+                    <p class="subtitle">Simulates a PhonePe / UPI payment event into Kafka</p>
+                </div>
+                
+                <form id="paymentForm">
+                    <div class="form-group">
+                        <label for="senderId">Sender User ID</label>
+                        <input type="text" id="senderId" placeholder="e.g. USER101" required value="USER101">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="receiverId">Receiver User ID</label>
+                        <input type="text" id="receiverId" placeholder="e.g. USER205" required value="USER205">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="amount">Amount (₹)</label>
+                            <input type="number" id="amount" min="1" step="0.01" placeholder="500" required value="500">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="transactionType">Transaction Type</label>
+                            <select id="transactionType">
+                                <option value="UPI_PAYMENT" selected>UPI Payment</option>
+                                <option value="IMPS">IMPS Immediate</option>
+                                <option value="NEFT">NEFT Transfer</option>
+                                <option value="DEBIT">Debit</option>
+                                <option value="CREDIT">Credit</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="quick-amounts">
+                        <button type="button" class="btn-chip" onclick="setAmount(100)">₹100</button>
+                        <button type="button" class="btn-chip" onclick="setAmount(500)">₹500</button>
+                        <button type="button" class="btn-chip" onclick="setAmount(2000)">₹2,000</button>
+                        <button type="button" class="btn-chip" onclick="setAmount(10000)">₹10,000</button>
+                    </div>
+
+                    <button type="submit" id="btnSend" class="btn-primary">
+                        <span>⚡ SEND PAYMENT</span>
+                    </button>
+                </form>
+
+                <div id="alertBox" class="alert hidden"></div>
+            </section>
+
+            <!-- Architecture Flow Visualization -->
+            <section class="card flow-card">
+                <div class="card-header">
+                    <h2>🔄 Streaming Pipeline Architecture</h2>
+                    <p class="subtitle">End-to-End Real-Time ETL Pipeline Flow</p>
+                </div>
+                <div class="pipeline-steps">
+                    <div class="step-box active" id="flowStep1">
+                        <div class="step-num">1</div>
+                        <div class="step-content">
+                            <strong>User App</strong>
+                            <span>Initiates payment</span>
+                        </div>
+                    </div>
+                    <div class="arrow">↓</div>
+                    <div class="step-box" id="flowStep2">
+                        <div class="step-num">2</div>
+                        <div class="step-content">
+                            <strong>Kafka Producer</strong>
+                            <span>Validates & serializes JSON</span>
+                        </div>
+                    </div>
+                    <div class="arrow">↓</div>
+                    <div class="step-box" id="flowStep3">
+                        <div class="step-num">3</div>
+                        <div class="step-content">
+                            <strong>Apache Kafka</strong>
+                            <span>Topic: <code>bank-transactions</code></span>
+                        </div>
+                    </div>
+                    <div class="arrow">↓</div>
+                    <div class="step-box" id="flowStep4">
+                        <div class="step-num">4</div>
+                        <div class="step-content">
+                            <strong>Kafka Consumer</strong>
+                            <span>Group: <code>bank-transaction-consumers</code></span>
+                        </div>
+                    </div>
+                    <div class="arrow">↓</div>
+                    <div class="step-box" id="flowStep5">
+                        <div class="step-num">5</div>
+                        <div class="step-content">
+                            <strong>MongoDB Database</strong>
+                            <span>Persisted in <code>bank.transactions</code></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="last-event-box">
+                    <div class="event-title">Latest Kafka Event JSON:</div>
+                    <pre id="jsonPreview">/* Waiting for transaction event... */</pre>
+                </div>
+            </section>
+        </div>
+
+        <!-- Transaction History & Search Section (Phase 11) -->
+        <section class="card table-card">
+            <div class="card-header flex-header">
+                <div>
+                    <h2>📜 Stored Transaction Ledger (MongoDB)</h2>
+                    <p class="subtitle">Real-time retrieval directly from MongoDB collection</p>
+                </div>
+                <div class="filter-controls">
+                    <input type="text" id="searchFilter" placeholder="Search Txn ID or User..." oninput="handleSearch()">
+                    <select id="typeFilter" onchange="loadTransactions()">
+                        <option value="">All Types</option>
+                        <option value="UPI_PAYMENT">UPI Payment</option>
+                        <option value="IMPS">IMPS</option>
+                        <option value="NEFT">NEFT</option>
+                        <option value="DEBIT">Debit</option>
+                        <option value="CREDIT">Credit</option>
+                    </select>
+                    <button class="btn-secondary" onclick="loadTransactions()">🔄 Refresh</button>
+                    <button class="btn-secondary" onclick="generateSimulatedBatch(5)">⚡ Send 5 Random</button>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Transaction ID</th>
+                            <th>Sender</th>
+                            <th>Receiver</th>
+                            <th>Amount</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionTableBody">
+                        <tr>
+                            <td colspan="7" class="empty-state">Loading transactions from MongoDB...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Bank Transaction Streamer &bull; College Laboratory Kafka & MongoDB Project &bull; Java 26 + Kafka + MongoDB</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
