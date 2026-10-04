@@ -225,22 +225,3 @@ Navigate to `http://localhost:8080` in your browser.
 **Answer**: Synchronous send blocks the calling thread until the broker acknowledges receipt (`producer.send(record).get()`), ensuring guaranteed delivery for financial transactions. Asynchronous send provides a callback, enabling non-blocking high-throughput writes.
 
 ---
-
-## 9. Pushing this Project to GitHub
-
-Follow these steps in your PowerShell terminal to upload the project to your GitHub account:
-
-```powershell
-# 1. Switch to project directory
-cd C:\BankTransactionStreamer
-
-# 2. Rename branch to main
-git branch -M main
-
-# 3. Add your remote GitHub repository URL
-# (Replace USERNAME and REPO_NAME with your GitHub details)
-git remote add origin https://github.com/USERNAME/REPO_NAME.git
-
-# 4. Push all commits to GitHub
-git push -u origin main
-```
