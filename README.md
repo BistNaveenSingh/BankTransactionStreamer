@@ -204,24 +204,3 @@ Navigate to `http://localhost:8080` in your browser.
 | `/api/analytics` | `GET` | None | Returns aggregated stream statistics from Analytics Consumer |
 
 ---
-
-## 8. College Laboratory & Viva Voce Q&A Reference
-
-### Q1: Why use Apache Kafka instead of writing directly to MongoDB?
-**Answer**: Writing directly from a frontend application to a database creates tight coupling. If the database experiences high load or becomes temporarily unavailable, payment submissions fail. Kafka acts as an ultra-high-throughput, durable buffer. The web app returns an immediate acknowledgment to the user, while consumers process and persist transactions at their own pace.
-
-### Q2: What is the purpose of Consumer Groups in Kafka?
-**Answer**: Consumer groups enable parallel processing and pub-sub architecture. In this project:
-- Group 1 (`bank-transaction-consumers`) writes records to MongoDB.
-- Group 2 (`bank-analytics-group`) reads the exact same topic independently to calculate real-time analytics without interfering with database persistence.
-
-### Q3: What is the role of ZooKeeper in this architecture?
-**Answer**: ZooKeeper maintains cluster metadata, tracks active broker nodes, elects the controller broker, and coordinates topic partitions and configuration changes.
-
-### Q4: How is duplicate transaction handling (Idempotency) achieved?
-**Answer**: MongoDB enforces a unique index on the `transactionId` field. When the consumer processes a duplicate message (e.g., during network retransmission), the repository detects the duplicate key and skips redundant insertion without throwing unhandled exceptions.
-
-### Q5: What is the difference between Synchronous and Asynchronous send in Kafka?
-**Answer**: Synchronous send blocks the calling thread until the broker acknowledges receipt (`producer.send(record).get()`), ensuring guaranteed delivery for financial transactions. Asynchronous send provides a callback, enabling non-blocking high-throughput writes.
-
----
