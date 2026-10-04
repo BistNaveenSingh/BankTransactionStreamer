@@ -15,6 +15,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 3000);
 
     document.getElementById('paymentForm').addEventListener('submit', handlePaymentSubmit);
+
+    // Initialize quick amount chip listeners
+    document.querySelectorAll('.btn-chip').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.btn-chip').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
 });
 
 function setAmount(val) {
@@ -31,7 +39,7 @@ async function handlePaymentSubmit(e) {
 
     const btn = document.getElementById('btnSend');
     btn.disabled = true;
-    btn.innerHTML = '<span class="material-symbols-outlined btn-icon">sync</span><span>Streaming to Kafka...</span>';
+    btn.innerHTML = '<span class="material-symbols-outlined btn-icon">sync</span><span>Publishing to Kafka...</span>';
 
     // Highlight flow steps
     animatePipeline();
@@ -46,14 +54,14 @@ async function handlePaymentSubmit(e) {
         const result = await response.json();
 
         if (result.success) {
-            showAlert(`Payment streamed successfully. Transaction ID: ${result.transaction.transactionId} published to topic 'bank-transactions'.`, 'success');
-            document.getElementById('jsonPreview').textContent = JSON.stringify(result.transaction, null, 2);
+            showAlert(`Payment successfully published to Kafka topic 'bank-transactions'. Txn ID: ${result.transaction.transactionId}`, 'success');
+            renderJsonPreview(result.transaction);
 
             // Reload table and stats
             setTimeout(() => {
                 loadTransactions();
                 loadAnalytics();
-            }, 600);
+            }, 500);
         } else {
             showAlert(result.error || 'Failed to stream transaction.', 'error');
         }
@@ -84,12 +92,12 @@ async function loadTransactions(showLoading = true) {
             return `
             <tr>
                 <td><code>${txn.transactionId}</code></td>
-                <td><strong>${txn.senderId}</strong></td>
-                <td><strong>${txn.receiverId}</strong></td>
-                <td>₹${parseFloat(txn.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                <td>${renderUserBadge(txn.senderId)}</td>
+                <td>${renderUserBadge(txn.receiverId)}</td>
+                <td><strong>₹${parseFloat(txn.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></td>
                 <td><span class="badge badge-${typeKey}">${txn.transactionType}</span></td>
-                <td><span class="badge badge-success"><span class="material-symbols-outlined" style="font-size:12px;">check</span> ${txn.status}</span></td>
-                <td><small>${formatTime(txn.timestamp)}</small></td>
+                <td><span class="badge badge-success"><span class="material-symbols-outlined" style="font-size:13px;">check_circle</span> ${txn.status}</span></td>
+                <td><small style="color: var(--text-muted);">${formatTime(txn.timestamp)}</small></td>
             </tr>
             `;
         }).join('');
@@ -125,16 +133,25 @@ async function loadSystemStatus() {
         const mongoText = document.getElementById('mongoText');
         if (status.mongoConnected) {
             mongoBadge.className = 'status-badge';
-            mongoText.textContent = 'Connected (27017)';
+            mongoBadge.innerHTML = `<span class="live-pulse"></span> <span class="material-symbols-outlined status-icon">database</span> <span>Mongo: <strong>Connected</strong></span>`;
         } else {
             mongoBadge.className = 'status-badge error';
-            mongoText.textContent = 'Disconnected';
+            mongoBadge.innerHTML = `<span class="material-symbols-outlined status-icon" style="color: var(--danger);">error</span> <span>Mongo: <strong>Disconnected</strong></span>`;
         }
+
+        const kafkaBadge = document.getElementById('kafkaStatus');
+        kafkaBadge.innerHTML = `<span class="live-pulse"></span> <span class="material-symbols-outlined status-icon">hub</span> <span>Kafka: <strong>9092</strong></span>`;
 
         document.getElementById('consumerCount').textContent = `${status.consumerProcessedCount || 0} msgs`;
     } catch (err) {
         console.warn('Status fetch error:', err);
     }
+}
+
+function renderUserBadge(id) {
+    if (!id) return '-';
+    const initial = id.substring(0, 1).toUpperCase();
+    return `<span class="user-badge"><span class="user-avatar">${initial}</span> ${id}</span>`;
 }
 
 function handleSearch() {
@@ -172,16 +189,39 @@ async function generateSimulatedBatch(count) {
     setTimeout(() => {
         loadTransactions();
         loadAnalytics();
-    }, 800);
+    }, 600);
 }
 
 function showAlert(msg, type) {
     const el = document.getElementById('alertBox');
     el.className = `alert alert-${type}`;
     const iconName = type === 'success' ? 'check_circle' : 'error';
-    el.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;">${iconName}</span><span>${msg}</span>`;
+    el.innerHTML = `<span class="material-symbols-outlined" style="font-size:20px;">${iconName}</span><span>${msg}</span>`;
     el.classList.remove('hidden');
     setTimeout(() => el.classList.add('hidden'), 5000);
+}
+
+function renderJsonPreview(obj) {
+    const pre = document.getElementById('jsonPreview');
+    const raw = JSON.stringify(obj, null, 2);
+    // Simple light syntax highlighting
+    pre.innerHTML = raw.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+        let style = 'color: #0f172a;';
+        if (/^"/.test(match)) {
+            if (/:$/.test(match)) {
+                style = 'color: #2563eb; font-weight: 600;'; // Key
+            } else {
+                style = 'color: #059669;'; // String
+            }
+        } else if (/true|false/.test(match)) {
+            style = 'color: #7c3aed; font-weight: 600;';
+        } else if (/null/.test(match)) {
+            style = 'color: #64748b; font-style: italic;';
+        } else {
+            style = 'color: #d97706; font-weight: 600;'; // Number
+        }
+        return `<span style="${style}">${match}</span>`;
+    });
 }
 
 function animatePipeline() {
@@ -191,7 +231,7 @@ function animatePipeline() {
             document.querySelectorAll('.step-box').forEach(s => s.classList.remove('active'));
             const el = document.getElementById(`flowStep${step}`);
             if (el) el.classList.add('active');
-        }, idx * 200);
+        }, idx * 180);
     });
 }
 
