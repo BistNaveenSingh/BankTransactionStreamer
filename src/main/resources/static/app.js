@@ -31,7 +31,7 @@ async function handlePaymentSubmit(e) {
 
     const btn = document.getElementById('btnSend');
     btn.disabled = true;
-    btn.innerText = 'Streaming to Kafka...';
+    btn.innerHTML = '<span class="material-symbols-outlined btn-icon">sync</span><span>Streaming to Kafka...</span>';
 
     // Highlight flow steps
     animatePipeline();
@@ -46,7 +46,7 @@ async function handlePaymentSubmit(e) {
         const result = await response.json();
 
         if (result.success) {
-            showAlert(`✅ Payment Streamed! Txn ID: ${result.transaction.transactionId} sent to Kafka topic 'bank-transactions'`, 'success');
+            showAlert(`Payment streamed successfully. Transaction ID: ${result.transaction.transactionId} published to topic 'bank-transactions'.`, 'success');
             document.getElementById('jsonPreview').textContent = JSON.stringify(result.transaction, null, 2);
 
             // Reload table and stats
@@ -55,13 +55,13 @@ async function handlePaymentSubmit(e) {
                 loadAnalytics();
             }, 600);
         } else {
-            showAlert(`❌ ${result.error || 'Failed to stream transaction'}`, 'error');
+            showAlert(result.error || 'Failed to stream transaction.', 'error');
         }
     } catch (err) {
-        showAlert(`❌ Network/Server error: ${err.message}`, 'error');
+        showAlert(`Network/Server error: ${err.message}`, 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '<span>⚡ SEND PAYMENT</span>';
+        btn.innerHTML = '<span class="material-symbols-outlined btn-icon">send</span><span>SEND PAYMENT</span>';
     }
 }
 
@@ -79,17 +79,20 @@ async function loadTransactions(showLoading = true) {
             return;
         }
 
-        tbody.innerHTML = data.map(txn => `
+        tbody.innerHTML = data.map(txn => {
+            const typeKey = (txn.transactionType || '').toLowerCase();
+            return `
             <tr>
                 <td><code>${txn.transactionId}</code></td>
                 <td><strong>${txn.senderId}</strong></td>
                 <td><strong>${txn.receiverId}</strong></td>
                 <td>₹${parseFloat(txn.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                <td><span class="badge badge-${txn.transactionType.toLowerCase()}">${txn.transactionType}</span></td>
-                <td><span class="badge badge-success">${txn.status}</span></td>
+                <td><span class="badge badge-${typeKey}">${txn.transactionType}</span></td>
+                <td><span class="badge badge-success"><span class="material-symbols-outlined" style="font-size:12px;">check</span> ${txn.status}</span></td>
                 <td><small>${formatTime(txn.timestamp)}</small></td>
             </tr>
-        `).join('');
+            `;
+        }).join('');
     } catch (err) {
         if (showLoading) {
             tbody.innerHTML = `<tr><td colspan="7" class="empty-state error">Failed to load transactions: ${err.message}</td></tr>`;
@@ -121,10 +124,10 @@ async function loadSystemStatus() {
         const mongoBadge = document.getElementById('mongoStatus');
         const mongoText = document.getElementById('mongoText');
         if (status.mongoConnected) {
-            mongoBadge.querySelector('.dot').className = 'dot green';
+            mongoBadge.className = 'status-badge';
             mongoText.textContent = 'Connected (27017)';
         } else {
-            mongoBadge.querySelector('.dot').className = 'dot red';
+            mongoBadge.className = 'status-badge error';
             mongoText.textContent = 'Disconnected';
         }
 
@@ -148,7 +151,7 @@ async function generateSimulatedBatch(count) {
     const types = ['UPI_PAYMENT', 'IMPS', 'NEFT', 'DEBIT', 'CREDIT'];
     const amounts = [150, 499, 1200, 2500, 7500, 10000];
 
-    showAlert(`Sending ${count} simulated payment events to Kafka...`, 'success');
+    showAlert(`Publishing ${count} simulated payment events to Kafka topic...`, 'success');
 
     for (let i = 0; i < count; i++) {
         const s = users[Math.floor(Math.random() * users.length)];
@@ -175,7 +178,8 @@ async function generateSimulatedBatch(count) {
 function showAlert(msg, type) {
     const el = document.getElementById('alertBox');
     el.className = `alert alert-${type}`;
-    el.textContent = msg;
+    const iconName = type === 'success' ? 'check_circle' : 'error';
+    el.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px;">${iconName}</span><span>${msg}</span>`;
     el.classList.remove('hidden');
     setTimeout(() => el.classList.add('hidden'), 5000);
 }
